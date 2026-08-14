@@ -1,7 +1,8 @@
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-from datetime import date
 import sqlite3
+from datetime import datetime, date, timedelta
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -9,15 +10,87 @@ CORS(app)
 DATABASE = "streak.db"
 
 
+# =========================================================
+# PUZZLES
+# =========================================================
+
+PUZZLES = [
+    {
+        "id": 1,
+        "type": "number",
+        "question": "What comes next in the sequence: 2, 4, 8, 16, ?",
+        "answer": "32"
+    },
+    {
+        "id": 2,
+        "type": "logic",
+        "question": "A farmer has 10 animals consisting only of chickens and cows. There are 28 legs in total. How many cows are there?",
+        "answer": "4"
+    },
+    {
+        "id": 3,
+        "type": "math",
+        "question": "What is 15 × 6?",
+        "answer": "90"
+    },
+    {
+        "id": 4,
+        "type": "logic",
+        "question": "A clock shows 3:00. What is the angle between the hour and minute hands?",
+        "answer": "90"
+    },
+    {
+        "id": 5,
+        "type": "number",
+        "question": "What comes next: 5, 10, 20, 40, ?",
+        "answer": "80"
+    },
+    {
+        "id": 6,
+        "type": "math",
+        "question": "What is 144 divided by 12?",
+        "answer": "12"
+    },
+    {
+        "id": 7,
+        "type": "logic",
+        "question": "If 3 cats catch 3 mice in 3 minutes, how many cats are needed to catch 100 mice in 100 minutes?",
+        "answer": "3"
+    },
+    {
+        "id": 8,
+        "type": "number",
+        "question": "What is the next number: 1, 4, 9, 16, ?",
+        "answer": "25"
+    },
+    {
+        "id": 9,
+        "type": "math",
+        "question": "What is 25% of 200?",
+        "answer": "50"
+    },
+    {
+        "id": 10,
+        "type": "logic",
+        "question": "A dozen eggs cost ₹60. How much does one egg cost?",
+        "answer": "5"
+    }
+]
+
+
+# =========================================================
+# DATABASE
+# =========================================================
+
 def get_db():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    return conn
+    connection = sqlite3.connect(DATABASE)
+    connection.row_factory = sqlite3.Row
+    return connection
 
 
 def init_db():
-    conn = get_db()
-    cursor = conn.cursor()
+    connection = get_db()
+    cursor = connection.cursor()
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS players (
@@ -41,99 +114,101 @@ def init_db():
             guess TEXT NOT NULL,
             correct INTEGER NOT NULL,
             answer TEXT NOT NULL,
-            played_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            played_at TEXT NOT NULL,
             UNIQUE(username, puzzle_date)
         )
     """)
 
-    conn.commit()
-    conn.close()
+    connection.commit()
+    connection.close()
 
 
-PUZZLES = [
-    {"id": 1, "type": "logic",
-     "question": "What comes next? 2 → 6 → 12 → 20 → 30 → ?",
-     "answer": "42"},
-
-    {"id": 2, "type": "logic",
-     "question": "A farmer has 10 animals consisting only of chickens and cows. There are 28 legs in total. How many cows are there?",
-     "answer": "4"},
-
-    {"id": 3, "type": "logic",
-     "question": "A clock shows 3:00. What is the angle between the hour and minute hands?",
-     "answer": "90"},
-
-    {"id": 4, "type": "number",
-     "question": "What number is missing? 5, 10, 20, 40, ?",
-     "answer": "80"},
-
-    {"id": 5, "type": "logic",
-     "question": "If 3 cats catch 3 mice in 3 minutes, how many cats are needed to catch 100 mice in 100 minutes?",
-     "answer": "3"},
-
-    {"id": 6, "type": "number",
-     "question": "What comes next? 1, 4, 9, 16, 25, ?",
-     "answer": "36"},
-
-    {"id": 7, "type": "logic",
-     "question": "You have 5 apples and take away 2. How many apples do you have?",
-     "answer": "2"},
-
-    {"id": 8, "type": "number",
-     "question": "What comes next? 3, 6, 12, 24, ?",
-     "answer": "48"},
-
-    {"id": 9, "type": "logic",
-     "question": "A dozen eggs costs ₹60. How much does one egg cost?",
-     "answer": "5"},
-
-    {"id": 10, "type": "number",
-     "question": "What comes next? 100, 90, 81, 73, ?",
-     "answer": "66"}
-]
-
+# =========================================================
+# DAILY PUZZLE
+# =========================================================
 
 def puzzle_for_date(date_string):
-    current_date = date.fromisoformat(date_string)
-    index = current_date.toordinal() % len(PUZZLES)
+    d = datetime.strptime(date_string, "%Y-%m-%d").date()
+    index = d.toordinal() % len(PUZZLES)
     return PUZZLES[index]
 
 
-def get_or_create_player(username):
-    conn = get_db()
-    cursor = conn.cursor()
+# =========================================================
+# PLAYER HELPERS
+# =========================================================
 
-    cursor.execute(
-        "SELECT * FROM players WHERE username = ?",
+def get_player(username):
+    connection = get_db()
+
+    player = connection.execute(
+        """
+        SELECT *
+        FROM players
+        WHERE username = ?
+        """,
         (username,)
-    )
-    player = cursor.fetchone()
+    ).fetchone()
 
-    if player is None:
-        cursor.execute("""
-            INSERT INTO players
-            (username, current_streak, best_streak,
-             total_games, wins, losses, last_played_date)
-            VALUES (?, 0, 0, 0, 0, 0, NULL)
-        """, (username,))
-        conn.commit()
+    connection.close()
 
-        cursor.execute(
-            "SELECT * FROM players WHERE username = ?",
-            (username,)
-        )
-        player = cursor.fetchone()
-
-    conn.close()
     return player
 
+
+def create_or_get_player(username):
+    username = username.strip()
+
+    connection = get_db()
+
+    connection.execute(
+        """
+        INSERT OR IGNORE INTO players (username)
+        VALUES (?)
+        """,
+        (username,)
+    )
+
+    connection.commit()
+
+    player = connection.execute(
+        """
+        SELECT *
+        FROM players
+        WHERE username = ?
+        """,
+        (username,)
+    ).fetchone()
+
+    connection.close()
+
+    return player
+
+
+def player_response(player):
+    today = date.today().isoformat()
+
+    return {
+        "id": player["id"],
+        "username": player["username"],
+        "current_streak": player["current_streak"],
+        "best_streak": player["best_streak"],
+        "played_today": player["last_played_date"] == today
+    }
+
+
+# =========================================================
+# FRONTEND
+# =========================================================
 
 @app.route("/")
 def home():
     return render_template("index.html")
 
 
-@app.route("/api/health")
+# =========================================================
+# HEALTH
+# =========================================================
+
+@app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({
         "status": "success",
@@ -141,116 +216,121 @@ def health():
     })
 
 
+# =========================================================
+# CREATE / GET PLAYER
+# =========================================================
+
 @app.route("/api/player", methods=["POST"])
-def create_player():
+def player():
+
     data = request.get_json(silent=True) or {}
-    username = str(data.get("username", "")).strip().lower()
+
+    username = str(data.get("username", "")).strip()
 
     if not username:
-        return jsonify({"error": "Username is required."}), 400
-
-    if len(username) > 50:
         return jsonify({
-            "error": "Username must be 50 characters or less."
+            "error": "Username is required"
         }), 400
 
-    player = get_or_create_player(username)
-    today = date.today().isoformat()
+    if len(username) > 30:
+        return jsonify({
+            "error": "Username must be 30 characters or less"
+        }), 400
 
-    return jsonify({
-        "id": player["id"],
-        "username": player["username"],
-        "current_streak": player["current_streak"],
-        "best_streak": player["best_streak"],
-        "played_today": player["last_played_date"] == today
-    })
+    player_data = create_or_get_player(username)
+
+    return jsonify(player_response(player_data))
 
 
-@app.route("/api/today")
+# =========================================================
+# TODAY'S PUZZLE
+# =========================================================
+
+@app.route("/api/today", methods=["GET"])
 def today():
-    username = request.args.get("username", "").strip().lower()
+
+    username = request.args.get("username", "").strip()
 
     if not username:
-        return jsonify({"error": "Username is required."}), 400
+        return jsonify({
+            "error": "Username is required"
+        }), 400
 
-    player = get_or_create_player(username)
+    player = get_player(username)
 
-    today_date = date.today()
-    today_string = today_date.isoformat()
+    if not player:
+        return jsonify({
+            "error": "Player not found"
+        }), 404
 
-    current_streak = player["current_streak"]
-
-    if player["last_played_date"]:
-        last_date = date.fromisoformat(player["last_played_date"])
-        if (today_date - last_date).days > 1:
-            current_streak = 0
-
-            conn = get_db()
-            conn.execute(
-                "UPDATE players SET current_streak = 0 WHERE username = ?",
-                (username,)
-            )
-            conn.commit()
-            conn.close()
+    today_string = date.today().isoformat()
 
     puzzle = puzzle_for_date(today_string)
 
-    conn = get_db()
-    played = conn.execute("""
-        SELECT id FROM game_history
-        WHERE username = ? AND puzzle_date = ?
-    """, (username, today_string)).fetchone()
-    conn.close()
+    played_today = player["last_played_date"] == today_string
 
     return jsonify({
         "date": today_string,
-        "played_today": played is not None,
-        "current_streak": current_streak,
-        "best_streak": player["best_streak"],
         "puzzle": {
             "id": puzzle["id"],
             "type": puzzle["type"],
             "question": puzzle["question"]
-        }
+        },
+        "current_streak": player["current_streak"],
+        "best_streak": player["best_streak"],
+        "played_today": played_today
     })
 
 
+# =========================================================
+# SUBMIT GUESS
+# =========================================================
+
 @app.route("/api/guess", methods=["POST"])
-def submit_guess():
+def guess():
+
     data = request.get_json(silent=True) or {}
 
-    username = str(data.get("username", "")).strip().lower()
-    guess = str(data.get("guess", "")).strip()
+    username = str(data.get("username", "")).strip()
+    user_guess = str(data.get("guess", "")).strip()
 
     if not username:
-        return jsonify({"error": "Username is required."}), 400
+        return jsonify({
+            "error": "Username is required"
+        }), 400
 
-    if not guess:
-        return jsonify({"error": "Guess is required."}), 400
+    if not user_guess:
+        return jsonify({
+            "error": "Guess is required"
+        }), 400
 
-    today_date = date.today()
-    today_string = today_date.isoformat()
-    puzzle = puzzle_for_date(today_string)
+    player = get_player(username)
 
-    conn = get_db()
-    cursor = conn.cursor()
+    if not player:
+        return jsonify({
+            "error": "Player not found"
+        }), 404
 
-    player = cursor.execute(
-        "SELECT * FROM players WHERE username = ?",
-        (username,)
+    today_string = date.today().isoformat()
+
+    # Prevent multiple guesses on the same day
+    existing_game = None
+
+    connection = get_db()
+
+    existing_game = connection.execute(
+        """
+        SELECT *
+        FROM game_history
+        WHERE username = ?
+        AND puzzle_date = ?
+        """,
+        (username, today_string)
     ).fetchone()
 
-    if player is None:
-        conn.close()
-        return jsonify({"error": "Player not found."}), 404
+    connection.close()
 
-    existing = cursor.execute("""
-        SELECT id FROM game_history
-        WHERE username = ? AND puzzle_date = ?
-    """, (username, today_string)).fetchone()
-
-    if existing is not None:
-        conn.close()
+    if existing_game:
         return jsonify({
             "error": "You have already played today's puzzle.",
             "played_today": True,
@@ -258,67 +338,117 @@ def submit_guess():
             "best_streak": player["best_streak"]
         }), 409
 
-    correct = guess.casefold() == str(puzzle["answer"]).strip().casefold()
+    puzzle = puzzle_for_date(today_string)
+
+    correct_answer = str(puzzle["answer"]).strip()
+
+    is_correct = user_guess.lower() == correct_answer.lower()
 
     current_streak = player["current_streak"]
-    best_streak = player["best_streak"]
 
-    previous_day_played = False
+    # -----------------------------------------------------
+    # Check missed day
+    # -----------------------------------------------------
 
-    if player["last_played_date"]:
-        last_date = date.fromisoformat(player["last_played_date"])
-        previous_day_played = (today_date - last_date).days == 1
+    last_played = player["last_played_date"]
 
-    if correct:
-        current_streak = current_streak + 1 if previous_day_played else 1
-        best_streak = max(best_streak, current_streak)
+    if last_played:
+
+        try:
+            last_date = datetime.strptime(
+                last_played,
+                "%Y-%m-%d"
+            ).date()
+
+            yesterday = date.today() - timedelta(days=1)
+
+            if last_date != yesterday:
+                current_streak = 0
+
+        except ValueError:
+            current_streak = 0
+
+    # -----------------------------------------------------
+    # Update streak
+    # -----------------------------------------------------
+
+    if is_correct:
+        current_streak += 1
     else:
         current_streak = 0
 
+    best_streak = max(
+        player["best_streak"],
+        current_streak
+    )
+
     total_games = player["total_games"] + 1
-    wins = player["wins"] + (1 if correct else 0)
-    losses = player["losses"] + (0 if correct else 1)
 
-    cursor.execute("""
-        INSERT INTO game_history
-        (username, puzzle_date, puzzle_id, guess, correct, answer)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (
-        username,
-        today_string,
-        puzzle["id"],
-        guess,
-        1 if correct else 0,
-        str(puzzle["answer"])
-    ))
+    wins = player["wins"] + (1 if is_correct else 0)
 
-    cursor.execute("""
+    losses = player["losses"] + (0 if is_correct else 1)
+
+    # -----------------------------------------------------
+    # Save everything
+    # -----------------------------------------------------
+
+    connection = get_db()
+
+    connection.execute(
+        """
         UPDATE players
-        SET current_streak = ?,
+        SET
+            current_streak = ?,
             best_streak = ?,
             total_games = ?,
             wins = ?,
             losses = ?,
             last_played_date = ?
         WHERE username = ?
-    """, (
-        current_streak,
-        best_streak,
-        total_games,
-        wins,
-        losses,
-        today_string,
-        username
-    ))
+        """,
+        (
+            current_streak,
+            best_streak,
+            total_games,
+            wins,
+            losses,
+            today_string,
+            username
+        )
+    )
 
-    conn.commit()
-    conn.close()
+    connection.execute(
+        """
+        INSERT INTO game_history (
+            username,
+            puzzle_date,
+            puzzle_id,
+            guess,
+            correct,
+            answer,
+            played_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            username,
+            today_string,
+            puzzle["id"],
+            user_guess,
+            int(is_correct),
+            correct_answer,
+            datetime.now().isoformat()
+        )
+    )
+
+    connection.commit()
+    connection.close()
 
     return jsonify({
-        "correct": correct,
-        "result": "win" if correct else "loss",
-        "guess": guess,
-        "answer": str(puzzle["answer"]),
+        "result": "win" if is_correct else "loss",
+        "correct": is_correct,
+        "guess": user_guess,
+        "answer": correct_answer,
         "current_streak": current_streak,
         "best_streak": best_streak,
         "total_games": total_games,
@@ -327,28 +457,32 @@ def submit_guess():
         "played_today": True,
         "message": (
             f"Correct! Your streak is now {current_streak}."
-            if correct
-            else "Not this time. Your streak has been reset."
+            if is_correct
+            else "Wrong answer. Your streak has been reset."
         )
     })
 
 
-@app.route("/api/stats")
+# =========================================================
+# PLAYER STATISTICS
+# =========================================================
+
+@app.route("/api/stats", methods=["GET"])
 def stats():
-    username = request.args.get("username", "").strip().lower()
+
+    username = request.args.get("username", "").strip()
 
     if not username:
-        return jsonify({"error": "Username is required."}), 400
+        return jsonify({
+            "error": "Username is required"
+        }), 400
 
-    conn = get_db()
-    player = conn.execute(
-        "SELECT * FROM players WHERE username = ?",
-        (username,)
-    ).fetchone()
-    conn.close()
+    player = get_player(username)
 
-    if player is None:
-        return jsonify({"error": "Player not found."}), 404
+    if not player:
+        return jsonify({
+            "error": "Player not found"
+        }), 404
 
     return jsonify({
         "username": player["username"],
@@ -360,46 +494,24 @@ def stats():
     })
 
 
-# ---------------------------------------------------------
-# DEVELOPMENT SELF-TEST
-# ---------------------------------------------------------
+# =========================================================
+# INITIALIZE DATABASE
+# IMPORTANT FOR GUNICORN / RENDER
+# =========================================================
 
-def run_self_test():
-    print("\n" + "=" * 55)
-    print("STREAK BACKEND SELF-TEST")
-    print("=" * 55)
+init_db()
 
-    client = app.test_client()
 
-    response = client.get("/api/health")
-    print("1. HEALTH:", response.status_code, response.get_json())
-
-    test_user = "selftest_user"
-
-    response = client.post(
-        "/api/player",
-        json={"username": test_user}
-    )
-    print("2. PLAYER:", response.status_code, response.get_json())
-
-    response = client.get(
-        "/api/today",
-        query_string={"username": test_user}
-    )
-    print("3. TODAY:", response.status_code, response.get_json())
-
-    print("=" * 55)
-    print("SELF-TEST COMPLETE")
-    print("=" * 55)
-
+# =========================================================
+# RUN LOCALLY
+# =========================================================
 
 if __name__ == "__main__":
-    init_db()
 
     print("=" * 55)
     print("STREAK BACKEND")
     print("=" * 55)
-    print("Database: streak.db")
+    print("Database:", DATABASE)
     print("API: http://127.0.0.1:5000")
     print("")
     print("Endpoints:")
@@ -411,4 +523,8 @@ if __name__ == "__main__":
     print("GET  /api/stats")
     print("=" * 55)
 
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=False
+    )
