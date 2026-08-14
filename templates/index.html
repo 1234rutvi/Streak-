@@ -1,1 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Streak — One Guess. Every Day.</title>
 
+<style>
+*{box-sizing:border-box}
+
+body{
+    margin:0;
+    min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:linear-gradient(135deg,#fff7fa 0%,#ffe8f0 50%,#fff3f7 100%);
+    color:#351d27;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:25px;
+}
+
+.app{width:100%;max-width:470px}
+
+.header{text-align:center;margin-bottom:22px}
+
+.logo{
+    font-size:38px;
+    font-weight:900;
+    letter-spacing:-2px;
+    color:#d94f7b;
+}
+
+.logo span{color:#351d27}
+
+.tagline{font-size:13px;color:#98747f;margin-top:4px}
+
+.streak-card{
+    background:rgba(255,255,255,.78);
+    border:1px solid #f5cbd8;
+    border-radius:22px;
+    padding:18px 22px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:18px;
+    box-shadow:0 8px 25px rgba(217,79,123,.08);
+}
+
+.streak-left{display:flex;align-items:center;gap:12px}
+
+.fire{
+    width:48px;height:48px;border-radius:15px;
+    background:#ffe0eb;
+    display:flex;align-items:center;justify-content:center;
+    font-size:25px;
+}
+
+.streak-number{font-size:25px;font-weight:850}
+.streak-label{font-size:11px;color:#9b7883}
+.best{text-align:right}
+.best-label{font-size:11px;color:#9b7883}
+.best-number{font-size:18px;font-weight:800;color:#d94f7b}
+
+.card{
+    background:white;
+    border-radius:28px;
+    padding:32px;
+    box-shadow:0 20px 50px rgba(121,55,76,.10);
+}
+
+.date{
+    text-align:center;
+    color:#d94f7b;
+    font-size:11px;
+    font-weight:800;
+    letter-spacing:1.5px;
+    margin-bottom:15px;
+}
+
+.question{
+    text-align:center;
+    font-size:22px;
+    font-weight:750;
+    line-height:1.45;
+    margin-bottom:28px;
+    color:#351d27;
+}
+
+.input{
+    width:100%;
+    padding:17px;
+    border-radius:15px;
+    border:1.5px solid #efc4d2;
+    background:#fffafd;
+    outline:none;
+    font-size:16px;
+    text-align:center;
+    color:#351d27;
+    transition:.2s;
+}
+
+.input:focus{
+    border-color:#d94f7b;
+    box-shadow:0 0 0 4px #ffe5ee;
+}
+
+.input::placeholder{color:#bd9da7}
+
+.submit{
+    width:100%;
+    margin-top:13px;
+    padding:17px;
+    border:none;
+    border-radius:15px;
+    background:linear-gradient(135deg,#e45b86,#d74372);
+    color:white;
+    font-size:15px;
+    font-weight:800;
+    letter-spacing:.3px;
+    cursor:pointer;
+    box-shadow:0 8px 18px rgba(215,67,114,.25);
+    transition:.2s;
+}
+
+.submit:hover{transform:translateY(-2px)}
+.submit:disabled{opacity:.6;cursor:not-allowed;transform:none}
+
+.note{text-align:center;margin-top:14px;font-size:11px;color:#ad8c96}
+
+.result-page{display:none}
+
+.result-icon{
+    width:82px;height:82px;border-radius:50%;
+    margin:0 auto 20px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:40px;
+}
+
+.correct-icon{background:#ffe1ec}
+.wrong-icon{background:#fff0f3}
+
+.result-title{
+    text-align:center;
+    font-size:31px;
+    font-weight:900;
+    color:#d74372;
+    margin-bottom:8px;
+}
+
+.result-subtitle{
+    text-align:center;
+    font-size:14px;
+    color:#94737e;
+    line-height:1.5;
+    margin-bottom:25px;
+}
+
+.answer-box{
+    background:#fff5f8;
+    border:1px solid #f5d3de;
+    border-radius:17px;
+    padding:18px;
+    text-align:center;
+    margin-bottom:18px;
+}
+
+.answer-label{
+    font-size:10px;
+    letter-spacing:1px;
+    color:#aa8792;
+    font-weight:800;
+}
+
+.answer{
+    font-size:25px;
+    font-weight:850;
+    color:#351d27;
+    margin-top:5px;
+}
+
+.result-streak{
+    background:#351d27;
+    color:white;
+    border-radius:18px;
+    padding:20px;
+    text-align:center;
+    margin-bottom:18px;
+}
+
+.result-streak-label{font-size:11px;color:#e7cdd5}
+.result-streak-number{
+    font-size:34px;
+    font-weight:900;
+    margin-top:3px;
+    color:#ffb5cb;
+}
+
+.tomorrow{text-align:center;color:#9a7882;font-size:12px;margin-bottom:20px}
+
+.stats{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+}
+
+.stat{
+    background:#fff7fa;
+    border-radius:14px;
+    padding:14px 5px;
+    text-align:center;
+}
+
+.stat-number{font-size:18px;font-weight:850}
+.stat-label{margin-top:3px;font-size:9px;color:#aa8993;letter-spacing:.5px}
+
+.footer{text-align:center;margin-top:18px;color:#b18f99;font-size:11px}
+
+.loading{text-align:center;padding:35px;color:#9b7883;font-size:14px}
+
+#usernamePage{display:none}
+
+.welcome{text-align:center;font-size:25px;font-weight:850;margin-bottom:10px}
+
+.welcome-text{
+    text-align:center;color:#94737e;font-size:13px;
+    line-height:1.5;margin-bottom:25px;
+}
+
+.error{
+    display:none;margin-top:12px;padding:12px;
+    background:#fff0f3;border:1px solid #f5ccd8;
+    border-radius:12px;color:#c63d67;
+    text-align:center;font-size:12px;
+}
+
+@media(max-width:500px){
+    body{padding:15px}
+    .card{padding:25px 20px}
+    .question{font-size:20px}
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<div id="usernamePage">
+
+    <div class="header">
+        <div class="logo">STREAK<span>.</span></div>
+        <div class="tagline">One puzzle. One guess. Every day.</div>
+    </div>
+
+    <div class="card">
+
+        <div class="welcome">Welcome to Streak</div>
+
+        <div class="welcome-text">
+            Enter a username to save your streak and game history.
+        </div>
+
+        <input id="usernameInput"
+               class="input"
+               type="text"
+               maxlength="50"
+               placeholder="Choose a username">
+
+        <button id="continueButton"
+                class="submit"
+                onclick="createPlayer()">
+            START PLAYING →
+        </button>
+
+        <div id="usernameError" class="error"></div>
+
+    </div>
+
+    <div class="footer">Your streak is yours to protect. 🔥</div>
+
+</div>
+
+
+<div id="gamePage">
+
+    <div class="header">
+        <div class="logo">STREAK<span>.</span></div>
+        <div class="tagline">One puzzle. One guess. Every day.</div>
+    </div>
+
+    <div class="streak-card">
+
+        <div class="streak-left">
+
+            <div class="fire">🔥</div>
+
+            <div>
+                <div id="currentStreak" class="streak-number">0</div>
+                <div class="streak-label">DAY STREAK</div>
+            </div>
+
+        </div>
+
+        <div class="best">
+            <div class="best-label">BEST STREAK</div>
+            <div id="bestStreak" class="best-number">0 days</div>
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="date">TODAY'S PUZZLE</div>
+
+        <div id="question" class="question">
+            Loading puzzle...
+        </div>
+
+        <input id="answerInput"
+               class="input"
+               placeholder="Enter your guess"
+               autocomplete="off">
+
+        <button id="submitButton"
+                class="submit"
+                onclick="submitGuess()">
+            SUBMIT GUESS →
+        </button>
+
+        <div class="note">You only get one guess today.</div>
+
+        <div id="gameError" class="error"></div>
+
+    </div>
+
+    <div class="footer">
+        Come back tomorrow for a new puzzle ✦
+    </div>
+
+</div>
+
+
+<div id="resultPage" class="result-page">
+
+    <div class="header">
+        <div class="logo">STREAK<span>.</span></div>
+        <div class="tagline">Today's challenge is complete.</div>
+    </div>
+
+    <div class="card">
+
+        <div id="resultIcon" class="result-icon"></div>
+
+        <div id="resultTitle" class="result-title"></div>
+
+        <div id="resultSubtitle" class="result-subtitle"></div>
+
+        <div class="answer-box">
+            <div class="answer-label">CORRECT ANSWER</div>
+            <div id="correctAnswer" class="answer"></div>
+        </div>
+
+        <div class="result-streak">
+            <div class="result-streak-label">CURRENT STREAK</div>
+            <div id="resultStreak" class="result-streak-number"></div>
+        </div>
+
+        <div class="tomorrow">
+            ✦ Your next puzzle arrives tomorrow.
+        </div>
+
+        <div class="stats">
+
+            <div class="stat">
+                <div id="games" class="stat-number">0</div>
+                <div class="stat-label">GAMES</div>
+            </div>
+
+            <div class="stat">
+                <div id="wins" class="stat-number">0</div>
+                <div class="stat-label">WINS</div>
+            </div>
+
+            <div class="stat">
+                <div id="losses" class="stat-number">0</div>
+                <div class="stat-label">LOSSES</div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="footer">
+        One puzzle a day. Protect your streak. 🔥
+    </div>
+
+</div>
+
+
+<div id="loading" class="loading">
+    Loading Streak...
+</div>
+
+</div>
+
+
+<script>
+
+const API_URL = "";
+let username = null;
+
+
+window.onload = function() {
+
+    username = localStorage.getItem("streak_username");
+
+    if (username) {
+        showGamePage();
+        loadToday();
+    } else {
+        showUsernamePage();
+    }
+};
+
+
+function hideAllPages() {
+
+    document.getElementById("usernamePage").style.display = "none";
+    document.getElementById("gamePage").style.display = "none";
+    document.getElementById("resultPage").style.display = "none";
+}
+
+
+function showUsernamePage() {
+
+    hideAllPages();
+
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("usernamePage").style.display = "block";
+}
+
+
+function showGamePage() {
+
+    hideAllPages();
+
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("gamePage").style.display = "block";
+}
+
+
+function showResultPage() {
+
+    hideAllPages();
+
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("resultPage").style.display = "block";
+}
+
+
+async function createPlayer() {
+
+    const input = document.getElementById("usernameInput");
+    const error = document.getElementById("usernameError");
+    const button = document.getElementById("continueButton");
+
+    const enteredUsername = input.value.trim();
+
+    error.style.display = "none";
+
+    if (!enteredUsername) {
+        error.textContent = "Please enter a username.";
+        error.style.display = "block";
+        return;
+    }
+
+    button.disabled = true;
+    button.textContent = "CREATING PLAYER...";
+
+    try {
+
+        const response = await fetch("/api/player", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                username: enteredUsername
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Unable to create player.");
+        }
+
+        username = data.username;
+
+        localStorage.setItem("streak_username", username);
+
+        showGamePage();
+        await loadToday();
+
+    } catch (error) {
+
+        error = error;
+
+        const errorBox = document.getElementById("usernameError");
+
+        errorBox.textContent = error.message;
+        errorBox.style.display = "block";
+
+        button.disabled = false;
+        button.textContent = "START PLAYING →";
+    }
+}
+
+
+async function loadToday() {
+
+    try {
+
+        const response = await fetch(
+            `/api/today?username=${encodeURIComponent(username)}`
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                data.error || "Unable to load today's puzzle."
+            );
+        }
+
+        document.getElementById("currentStreak").textContent =
+            data.current_streak;
+
+        document.getElementById("bestStreak").textContent =
+            `${data.best_streak} days`;
+
+        document.getElementById("question").textContent =
+            data.puzzle.question;
+
+        if (data.played_today) {
+
+            document.getElementById("answerInput").disabled = true;
+            document.getElementById("submitButton").disabled = true;
+
+            document.getElementById("submitButton").textContent =
+                "ALREADY PLAYED TODAY";
+
+            const error = document.getElementById("gameError");
+
+            error.textContent =
+                "You have already played today's puzzle. Come back tomorrow!";
+
+            error.style.display = "block";
+        }
+
+    } catch (error) {
+
+        const errorBox = document.getElementById("gameError");
+
+        errorBox.textContent = error.message;
+        errorBox.style.display = "block";
+    }
+}
+
+
+async function submitGuess() {
+
+    const input = document.getElementById("answerInput");
+    const button = document.getElementById("submitButton");
+    const error = document.getElementById("gameError");
+
+    const guess = input.value.trim();
+
+    error.style.display = "none";
+
+    if (!guess) {
+
+        error.textContent = "Please enter your guess.";
+        error.style.display = "block";
+        input.focus();
+
+        return;
+    }
+
+    button.disabled = true;
+    input.disabled = true;
+    button.textContent = "CHECKING...";
+
+    try {
+
+        const response = await fetch("/api/guess", {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                username: username,
+                guess: guess
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                data.error || "Unable to submit guess."
+            );
+        }
+
+        showResult(data);
+
+    } catch (error) {
+
+        error = error;
+
+        const errorBox = document.getElementById("gameError");
+
+        errorBox.textContent = error.message;
+        errorBox.style.display = "block";
+
+        button.disabled = false;
+        input.disabled = false;
+        button.textContent = "SUBMIT GUESS →";
+    }
+}
+
+
+async function showResult(data) {
+
+    const icon = document.getElementById("resultIcon");
+    const title = document.getElementById("resultTitle");
+    const subtitle = document.getElementById("resultSubtitle");
+
+    if (data.correct) {
+
+        icon.className = "result-icon correct-icon";
+        icon.textContent = "🎉";
+
+        title.textContent = "YOU GOT IT!";
+
+        subtitle.textContent =
+            "Perfect guess. Your streak lives another day.";
+
+    } else {
+
+        icon.className = "result-icon wrong-icon";
+        icon.textContent = "💔";
+
+        title.textContent = "NOT THIS TIME";
+
+        subtitle.textContent =
+            "The streak has reset. Come back tomorrow and start again.";
+    }
+
+    document.getElementById("correctAnswer").textContent =
+        data.answer;
+
+    document.getElementById("resultStreak").textContent =
+        data.correct
+            ? `🔥 ${data.current_streak}`
+            : "0";
+
+    try {
+
+        const response = await fetch(
+            `/api/stats?username=${encodeURIComponent(username)}`
+        );
+
+        const stats = await response.json();
+
+        if (response.ok) {
+
+            document.getElementById("games").textContent =
+                stats.total_games;
+
+            document.getElementById("wins").textContent =
+                stats.wins;
+
+            document.getElementById("losses").textContent =
+                stats.losses;
+        }
+
+    } catch (error) {
+        console.log("Stats error:", error);
+    }
+
+    showResultPage();
+}
+
+
+document.getElementById("answerInput").addEventListener(
+    "keydown",
+    function(event) {
+
+        if (event.key === "Enter") {
+            submitGuess();
+        }
+
+    }
+);
+
+</script>
+
+</body>
+</html>
